@@ -11,52 +11,56 @@ NULL
 
 #' @rdname DEsummaryPanel
 #' @export
-DEsummaryPanelUI <- function(id, metadata){
+DEsummaryPanelUI <- function(id, metadata, show = TRUE){
   ns <- NS(id)
   
-  tabPanel(
-    'DE Summary',
-    tags$h1("Principal Component Analysis on DE genes"),
-    shinyWidgets::dropdownButton(
-      radioButtons(ns('pca.annotation'), label = "Group by",
-                   choices = colnames(metadata), selected = colnames(metadata)[ncol(metadata)]),
-      shinyWidgets::switchInput(
-        inputId = ns("pca.useAllDE"),
-        label = "Use all DE?",
-        labelWidth = "80px",
-        onLabel = 'All DE',
-        offLabel = 'Only selected DE',
-        value = TRUE,
-        onStatus = FALSE
+  if(show){
+    tabPanel(
+      'DE Summary',
+      tags$h1("Gene heatmap"),
+      shinyWidgets::dropdownButton(
+        radioButtons(ns('heatmap.processing'), label = "Heatmap values",
+                     choices = c('Expression','Log2 Expression','Z-score'), 
+                     selected = 'Z-score'),
+        shinyjqui::orderInput(ns('heatmap.annotations'), label = "Show annotations", items = colnames(metadata)),
+        selectInput(ns("geneName"), "Additional genes to include:", multiple = TRUE, choices = character(0)),
+        div("\nIf no genes are selected in the DE panel or here then the top 50 DE genes are chosen.\n"),
+        div(style="margin-bottom:10px"),
+        textInput(ns('plotHeatmapFileName'), 'File name for heatmap plot download', value ='HeatmapPlot.png'),
+        downloadButton(ns('downloadHeatmapPlot'), 'Download Heatmap Plot'),
+        
+        status = "info",
+        icon = icon("gear", verify_fa = FALSE), 
+        tooltip = shinyWidgets::tooltipOptions(title = "Click to see inputs!")
       ),
-      checkboxInput(ns("pca.show.labels"), label = "Show sample labels", value = FALSE),
-      checkboxInput(ns('pca.show.ellipses'), label = "Show ellipses around groups", value = TRUE),
-      textInput(ns('plotPCAFileName'), 'File name for PCA plot download', value = 'PCAPlotDE.png'),
-      downloadButton(ns('downloadPCAPlot'), 'Download PCA Plot'),
-      
-      status = "info",
-      icon = icon("gear", verify_fa = FALSE), 
-      tooltip = shinyWidgets::tooltipOptions(title = "Click to see inputs!")
-    ),
-    plotOutput(ns('pca')),
-    tags$h1("Gene heatmap"),
-    shinyWidgets::dropdownButton(
-      radioButtons(ns('heatmap.processing'), label = "Heatmap values",
-                   choices = c('Expression','Log2 Expression','Z-score'), 
-                   selected = 'Z-score'),
-      shinyjqui::orderInput(ns('heatmap.annotations'), label = "Show annotations", items = colnames(metadata)),
-      selectInput(ns("geneName"), "Additional genes to include:", multiple = TRUE, choices = character(0)),
-      div("\nIf no genes are selected in the DE panel or here then the top 50 DE genes are chosen.\n"),
-      div(style="margin-bottom:10px"),
-      textInput(ns('plotHeatmapFileName'), 'File name for heatmap plot download', value ='HeatmapPlot.png'),
-      downloadButton(ns('downloadHeatmapPlot'), 'Download Heatmap Plot'),
-      
-      status = "info",
-      icon = icon("gear", verify_fa = FALSE), 
-      tooltip = shinyWidgets::tooltipOptions(title = "Click to see inputs!")
-    ),
-    plotOutput(ns('heatmap'), height = 400),
-  )
+      plotOutput(ns('heatmap'), height = 800),
+      tags$h1("Principal Component Analysis on DE genes"),
+      shinyWidgets::dropdownButton(
+        radioButtons(ns('pca.annotation'), label = "Group by",
+                     choices = colnames(metadata), selected = colnames(metadata)[ncol(metadata)]),
+        shinyWidgets::switchInput(
+          inputId = ns("pca.useAllDE"),
+          label = "Use all DE?",
+          labelWidth = "80px",
+          onLabel = 'All DE',
+          offLabel = 'Only selected DE',
+          value = TRUE,
+          onStatus = FALSE
+        ),
+        checkboxInput(ns("pca.show.labels"), label = "Show sample labels", value = FALSE),
+        checkboxInput(ns('pca.show.ellipses'), label = "Show ellipses around groups", value = TRUE),
+        textInput(ns('plotPCAFileName'), 'File name for PCA plot download', value = 'PCAPlotDE.png'),
+        downloadButton(ns('downloadPCAPlot'), 'Download PCA Plot'),
+        
+        status = "info",
+        icon = icon("gear", verify_fa = FALSE), 
+        tooltip = shinyWidgets::tooltipOptions(title = "Click to see inputs!")
+      ),
+      plotOutput(ns('pca')),
+    )
+  }else{
+    NULL
+  }
 }
 
 #' @rdname DEsummaryPanel
@@ -76,37 +80,16 @@ DEsummaryPanelServer <- function(id, expression.matrix, metadata, DEresults, ann
     #Set up server-side search for gene names
     updateSelectizeInput(session, "geneName", choices = anno$NAME, server = TRUE)
     
-    pca.plot <- reactive({
-      results = DEresults()$DE()
-      selectedGenes = DEresults()$selectedGenes()
-      if (input[['pca.useAllDE']]){
-        geneSet = results$DEtableSubset$gene_id
-      }else if (length(selectedGenes) != 0){
-        geneSet = selectedGenes
-      }else{
-        geneSet <- utils::head(results$DEtableSubset$gene_id, 50)
-      }
-      subsetExpression <- expression.matrix()[geneSet, , drop = FALSE]
-      myplot <- plot_pca(
-        expression.matrix = subsetExpression,
-        metadata = metadata(),
-        annotation.id = match(input[['pca.annotation']], colnames(metadata())),
-        n.abundant = NULL,
-        show.labels = input[['pca.show.labels']],
-        show.ellipses = input[['pca.show.ellipses']]
-      )
-      myplot
-    })
-    output[['pca']] <- renderPlot(pca.plot())
-    
     observe({
       items <- colnames(metadata())
       include.exclude <- apply(metadata(), 2, function(x){
         l <- length(unique(x))
         (l > 1) & (l < length(x))
       })
-      items <- colnames(metadata())[include.exclude]
-      items <- items[c(length(items), seq_len(length(items) - 1))]
+      if (sum(include.exclude == TRUE) != 0){
+        items <- colnames(metadata())[include.exclude]
+        items <- items[c(length(items), seq_len(length(items) - 1))]
+      } else {items = colnames(metadata())[2:ncol(metadata())]}
       shinyjqui::updateOrderInput(session, "heatmap.annotations", items = items)
     })
     heatmap.plot <- reactive({
@@ -139,21 +122,53 @@ DEsummaryPanelServer <- function(id, expression.matrix, metadata, DEresults, ann
     })
     output[['heatmap']] <- renderPlot(heatmap.plot(), height = 800)
     
+    pca.plot <- reactive({
+      results = DEresults()$DE()
+      selectedGenes = DEresults()$selectedGenes()
+      if (input[['pca.useAllDE']]){
+        geneSet = results$DEtableSubset$gene_id
+      }else if (length(selectedGenes) != 0){
+        geneSet = selectedGenes
+      }else{
+        geneSet <- utils::head(results$DEtableSubset$gene_id, 50)
+      }
+      subsetExpression <- expression.matrix()[geneSet, , drop = FALSE]
+      myplot <- plot_pca(
+        expression.matrix = subsetExpression,
+        metadata = metadata(),
+        annotation.id = match(input[['pca.annotation']], colnames(metadata())),
+        n.abundant = NULL,
+        show.labels = input[['pca.show.labels']],
+        show.ellipses = input[['pca.show.ellipses']]
+      )
+      myplot
+    })
+    output[['pca']] <- renderPlot(pca.plot())
+    
     output[['downloadHeatmapPlot']] <- downloadHandler(
       filename = function() { input[['plotHeatmapFileName']] },
       content = function(file) {
-        grDevices::png(file,width = 480, height = 1000, units = "px", 
-                       pointsize = 12, bg = "white", res = NA)
-        print(heatmap.plot())
-        grDevices::dev.off()
+        if (base::strsplit(input[['plotHeatmapFileName']], split="\\.")[[1]][-1] == 'pdf'){
+          grDevices::pdf(file, width = 10, height = 20, pointsize = 20)
+          print(heatmap.plot())
+          grDevices::dev.off()
+        } else if (base::strsplit(input[['plotHeatmapFileName']], split="\\.")[[1]][-1] == 'svg'){
+          grDevices::svg(file, width = 10, height = 20, pointsize = 20)
+          print(heatmap.plot())
+          grDevices::dev.off()
+        } else {
+          grDevices::png(file, width = 480, height = 1000, units = "px", 
+                         pointsize = 12, bg = "white", res = NA)
+          print(heatmap.plot())
+          grDevices::dev.off()
+        }
       }
     )
     
     output[['downloadPCAPlot']] <- downloadHandler(
       filename = function() { input[['plotPCAFileName']] },
       content = function(file) {
-        device <- function(..., width, height) grDevices::png(..., width = width, height = height, res = 300, units = "in")
-        ggsave(file, plot = pca.plot(), device = device)
+        ggsave(file, plot = pca.plot(), dpi = 300)
       }
     )
   })

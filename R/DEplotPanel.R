@@ -13,65 +13,69 @@ NULL
 
 #' @rdname DEplotPanel
 #' @export
-DEplotPanelUI <- function(id){
+DEplotPanelUI <- function(id, show = TRUE){
   ns <- NS(id)
   
-  tabPanel(
-    'Volcano and MA plots',
-    shinyWidgets::dropdownButton(
-      selectInput(ns('plotType'), 'Type of plot:', c('Volcano', 'MA')),
-      shinyWidgets::switchInput(
-        inputId = ns('autoLabel'),
-        label = "Auto labels", 
-        labelWidth = "80px",
-        onLabel = 'On',
-        offLabel = 'Off',
-        value = FALSE,
-        onStatus = FALSE
-      ),
-      shinyWidgets::switchInput(
-        inputId = ns("highlightSelected"),
-        label = "Highlight selected DE genes?",
-        labelWidth = "80px",
-        onLabel = 'No',
-        offLabel = 'Yes',
-        value = FALSE,
-        onStatus = FALSE
-      ),
-      shinyWidgets::switchInput(
-        inputId = ns('allGenes'),
-        label = "Showing on click:", 
-        labelWidth = "80px",
-        onLabel = 'All genes',
-        offLabel = 'Only DE genes',
-        value = FALSE,
-        onStatus = FALSE
-      ),
-      conditionalPanel(
-        id = ns('conditionalVolcanoOption'),
-        ns=ns,
-        condition = "input[['plotType']] == 'Volcano'",
+  if(show){
+    tabPanel(
+      'Volcano and MA plots',
+      shinyWidgets::dropdownButton(
+        selectInput(ns('plotType'), 'Type of plot:', c('Volcano', 'MA')),
         shinyWidgets::switchInput(
-          inputId = ns("capPVal"),
-          label = "Cap log10(pval)?", 
+          inputId = ns('autoLabel'),
+          label = "Auto labels", 
+          labelWidth = "80px",
+          onLabel = 'On',
+          offLabel = 'Off',
+          value = FALSE,
+          onStatus = FALSE
+        ),
+        shinyWidgets::switchInput(
+          inputId = ns("highlightSelected"),
+          label = "Highlight selected DE genes?",
           labelWidth = "80px",
           onLabel = 'No',
           offLabel = 'Yes',
           value = FALSE,
           onStatus = FALSE
         ),
+        shinyWidgets::switchInput(
+          inputId = ns('allGenes'),
+          label = "Showing on click:", 
+          labelWidth = "80px",
+          onLabel = 'All genes',
+          offLabel = 'Only DE genes',
+          value = FALSE,
+          onStatus = FALSE
+        ),
+        conditionalPanel(
+          id = ns('conditionalVolcanoOption'),
+          ns=ns,
+          condition = "input[['plotType']] == 'Volcano'",
+          shinyWidgets::switchInput(
+            inputId = ns("capPVal"),
+            label = "Cap log10(pval)?", 
+            labelWidth = "80px",
+            onLabel = 'No',
+            offLabel = 'Yes',
+            value = FALSE,
+            onStatus = FALSE
+          ),
+        ),
+        selectInput(ns("geneName"), "Other genes to highlight:", multiple = TRUE, choices = character(0)),
+        textInput(ns('plotFileName'), 'File name for plot download', value ='DEPlot.png'),
+        downloadButton(ns('download'), 'Download Plot'),
+        
+        status = "info",
+        icon = icon("gear", verify_fa = FALSE), 
+        tooltip = shinyWidgets::tooltipOptions(title = "Click to see inputs!")
       ),
-      selectInput(ns("geneName"), "Other genes to highlight:", multiple = TRUE, choices = character(0)),
-      textInput(ns('plotFileName'), 'File name for plot download', value ='DEPlot.png'),
-      downloadButton(ns('download'), 'Download Plot'),
-      
-      status = "info",
-      icon = icon("gear", verify_fa = FALSE), 
-      tooltip = shinyWidgets::tooltipOptions(title = "Click to see inputs!")
-    ),
-    plotOutput(ns('plot'), click = ns('plot_click')),
-    tableOutput(ns('data')) 
-  )
+      plotOutput(ns('plot'), click = ns('plot_click')),
+      tableOutput(ns('data')) 
+    )
+  }else{
+    NULL
+  }
 }
 
 #' @rdname DEplotPanel
@@ -101,12 +105,12 @@ DEplotPanelServer <- function(id, DEresults, anno){
         highlightGenes <- input[["geneName"]]
       }
       
-
       if(input[['plotType']] == 'Volcano'){
         myplot <- volcano_plot(
           genes.de.results = results$DEtable,
           pval.threshold = results$pvalThreshold, 
           lfc.threshold = results$lfcThreshold,
+          raster = TRUE,
           add.labels.auto = input[["autoLabel"]],
           n.labels.auto = c(5, 5, 5),
           add.labels.custom = length(highlightGenes) > 0,
@@ -119,13 +123,13 @@ DEplotPanelServer <- function(id, DEresults, anno){
           genes.de.results = results$DEtable,
           pval.threshold = results$pvalThreshold, 
           lfc.threshold = results$lfcThreshold,
+          raster = TRUE,
           add.labels.auto = input[["autoLabel"]],
           n.labels.auto = c(5, 5, 5),
           add.labels.custom = length(highlightGenes) > 0,
           genes.to.label = highlightGenes
         )
       }
-      
       myplot
     })
     
@@ -148,8 +152,7 @@ DEplotPanelServer <- function(id, DEresults, anno){
     output[['download']] <- downloadHandler(
       filename = function() { input[['plotFileName']] },
       content = function(file) {
-        device <- function(..., width, height) grDevices::png(..., width = width, height = height, res = 300, units = "in")
-        ggsave(file, plot = DEplot(), device = device)
+        ggsave(file, plot = DEplot(), dpi = 300)
       }
     )
     

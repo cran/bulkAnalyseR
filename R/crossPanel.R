@@ -10,78 +10,82 @@ NULL
 
 #' @rdname crossPanel
 #' @export
-crossPanelUI <- function(id, metadata){
+crossPanelUI <- function(id, metadata, show = TRUE){
   ns <- NS(id)
   
-  tabPanel(
-    'Cross plot',
-    shinyjs::useShinyjs(),
-    sidebarLayout(
-      
-      sidebarPanel(
-        selectInput(ns('condition1'), 'Metadata column to use for comparison #1:', colnames(metadata)[-1], 
-                    selected = colnames(metadata)[ncol(metadata)]),
+  if(show){
+    tabPanel(
+      'Cross plot',
+      shinyjs::useShinyjs(),
+      sidebarLayout(
         
-        selectInput(ns('DE1var1'), 'DE comparison #1 Condition 1:', unique(metadata[[ncol(metadata)]])),
-        selectInput(ns('DE1var2'), 'DE comparison #1 Condition 2:', unique(metadata[[ncol(metadata)]]),
-                    selected = unique(metadata[[ncol(metadata)]])[2]),
-        
-        selectInput(ns('pipeline1'), 'DE pipeline for comparison #1:', c("edgeR", "DESeq2")),
-        
-        selectInput(ns('condition2'), 'Metadata column to use for comparison #2:', colnames(metadata)[-1], 
-                    selected = colnames(metadata)[ncol(metadata)]),
-        
-        selectInput(ns('DE2var1'), 'DE comparison #2 Condition 1:', unique(metadata[[ncol(metadata)]])),
-        selectInput(ns('DE2var2'), 'DE comparison #2 Condition 2:', unique(metadata[[ncol(metadata)]]),
-                    selected = unique(metadata[[ncol(metadata)]])[2]),
-        
-        selectInput(ns('pipeline2'), 'DE pipeline for comparison #2:', c("edgeR", "DESeq2")),
-        
-        sliderInput(ns('lfcThreshold'), label = 'logFC threshold',
-                    min = 0, value = 1, max = 5, step = 0.5),
-        sliderInput(ns('pvalThreshold'), label = 'Adjusted p-value threshold',
-                    min = 0, value = 0.05, max = 0.2, step = 0.005),
-        
-        actionButton(ns('goDE'), label = 'Start DE'),
-      ),
-      
-      #Main panel for displaying table of DE genes
-      mainPanel(
-        shinyWidgets::dropdownButton(
-          shinyWidgets::switchInput(
-            inputId = ns('autoLabel'),
-            label = "Auto labels", 
-            labelWidth = "80px",
-            onLabel = 'On',
-            offLabel = 'Off',
-            value = FALSE,
-            onStatus = FALSE
-          ),
-          shinyWidgets::switchInput(
-            inputId = ns('allGenes'),
-            label = "Showing on click:", 
-            labelWidth = "80px",
-            onLabel = 'All genes',
-            offLabel = 'Only DE genes',
-            value = FALSE,
-            onStatus = FALSE
-          ),
+        sidebarPanel(
+          selectInput(ns('condition1'), 'Metadata column to use for comparison #1:', colnames(metadata)[-1], 
+                      selected = colnames(metadata)[ncol(metadata)]),
           
-          selectInput(ns("geneName"), "Genes to highlight:", multiple = TRUE, choices = character(0)),
+          selectInput(ns('DE1var1'), 'DE comparison #1 Condition 1:', unique(metadata[[ncol(metadata)]])),
+          selectInput(ns('DE1var2'), 'DE comparison #1 Condition 2:', unique(metadata[[ncol(metadata)]]),
+                      selected = unique(metadata[[ncol(metadata)]])[2]),
           
-          textInput(ns('plotFileName'), 'File name for plot download', value ='crossPlot.png'),
-          downloadButton(ns('download'), 'Download Plot'),
+          selectInput(ns('pipeline1'), 'DE pipeline for comparison #1:', c("edgeR", "DESeq2")),
           
-          status = "info",
-          icon = icon("gear", verify_fa = FALSE), 
-          tooltip = shinyWidgets::tooltipOptions(title = "Click to see inputs!")
+          selectInput(ns('condition2'), 'Metadata column to use for comparison #2:', colnames(metadata)[-1], 
+                      selected = colnames(metadata)[ncol(metadata)]),
+          
+          selectInput(ns('DE2var1'), 'DE comparison #2 Condition 1:', unique(metadata[[ncol(metadata)]])),
+          selectInput(ns('DE2var2'), 'DE comparison #2 Condition 2:', unique(metadata[[ncol(metadata)]]),
+                      selected = unique(metadata[[ncol(metadata)]])[2]),
+          
+          selectInput(ns('pipeline2'), 'DE pipeline for comparison #2:', c("edgeR", "DESeq2")),
+          
+          sliderInput(ns('lfcThreshold'), label = 'logFC threshold',
+                      min = 0, value = 1, max = 5, step = 0.5),
+          sliderInput(ns('pvalThreshold'), label = 'Adjusted p-value threshold',
+                      min = 0, value = 0.05, max = 0.2, step = 0.005),
+          
+          actionButton(ns('goDE'), label = 'Start DE'),
         ),
         
-        plotOutput(ns('plot'), click = ns('plot_click')),
-        tableOutput(ns('data')) 
+        #Main panel for displaying table of DE genes
+        mainPanel(
+          shinyWidgets::dropdownButton(
+            shinyWidgets::switchInput(
+              inputId = ns('autoLabel'),
+              label = "Auto labels", 
+              labelWidth = "80px",
+              onLabel = 'On',
+              offLabel = 'Off',
+              value = FALSE,
+              onStatus = FALSE
+            ),
+            shinyWidgets::switchInput(
+              inputId = ns('allGenes'),
+              label = "Showing on click:", 
+              labelWidth = "80px",
+              onLabel = 'All genes',
+              offLabel = 'Only DE genes',
+              value = FALSE,
+              onStatus = FALSE
+            ),
+            
+            selectInput(ns("geneName"), "Genes to highlight:", multiple = TRUE, choices = character(0)),
+            
+            textInput(ns('plotFileName'), 'File name for plot download', value ='crossPlot.png'),
+            downloadButton(ns('download'), 'Download Plot'),
+            
+            status = "info",
+            icon = icon("gear", verify_fa = FALSE), 
+            tooltip = shinyWidgets::tooltipOptions(title = "Click to see inputs!")
+          ),
+          
+          plotOutput(ns('plot'), click = ns('plot_click')),
+          tableOutput(ns('data')) 
+        )
       )
     )
-  )
+  }else{
+    NULL
+  }
 }
 
 #' @rdname crossPanel
@@ -182,8 +186,9 @@ crossPanelServer <- function(id, expression.matrix, metadata, anno){
                   'lfcThreshold' = input[["lfcThreshold"]], 
                   'pvalThreshold' = input[["pvalThreshold"]]))
     }) %>%
-      bindCache(metadata(), input[["condition1"]], input[['DE1var1']], input[['DE1var2']],
-                input[["pipeline1"]], input[["condition2"]], input[['DE2var1']], input[['DE2var2']],
+      bindCache(utils::head(expression.matrix()),metadata(), input[["condition1"]], 
+                input[['DE1var1']], input[['DE1var2']], input[["pipeline1"]], 
+                input[["condition2"]], input[['DE2var1']], input[['DE2var2']],
                 input[["pipeline2"]], input[["lfcThreshold"]], input[["pvalThreshold"]]) %>%
       bindEvent(input[["goDE"]])
     
@@ -195,6 +200,7 @@ crossPanelServer <- function(id, expression.matrix, metadata, anno){
         DEtable1Subset = results$DEtable1Subset,
         DEtable2Subset = results$DEtable2Subset,
         lfc.threshold = results$lfcThreshold,
+        raster = TRUE,
         labels.per.region = ifelse(input[["autoLabel"]], 5, 0),
         add.labels.custom = length(input[["geneName"]]) > 0,
         genes.to.label = input[["geneName"]]
@@ -226,10 +232,7 @@ crossPanelServer <- function(id, expression.matrix, metadata, anno){
     output[['download']] <- downloadHandler(
       filename = function() input[['plotFileName']],
       content = function(file) {
-        device <- function(..., width, height){
-          grDevices::png(..., width = width, height = height, res = 300, units = "in")
-        }
-        ggsave(file, plot = cp(), device = device)
+        ggsave(file, plot = cp(), dpi = 300)
       }
     )
   })

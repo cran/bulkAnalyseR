@@ -10,57 +10,61 @@ NULL
 
 #' @rdname QCpanel
 #' @export
-QCpanelUI <- function(id, metadata){
+QCpanelUI <- function(id, metadata, show = TRUE){
   ns <- NS(id)
   
-  tabPanel(
-    'Quality checks',
-    tags$h1("Jaccard Similarity Index Heatmap"),
-    shinyWidgets::dropdownButton(
-      shinyjqui::orderInput(ns('jaccard.annotations'), label = "Show annotations", items = colnames(metadata)),
-      sliderInput(ns('jaccard.n.abundant'), label = '# of (most abundant) genes',
-                  min = 50, value = 500, max = 5000, step = 50, ticks = FALSE),
-      checkboxInput(ns("jaccard.show.values"), label = "Show JSI values", value = FALSE),
-      textInput(ns('plotJSIFileName'), 'File name for JSI plot download', value ='JSIPlot.png'),
-      downloadButton(ns('downloadJSIPlot'), 'Download JSI Plot'),
+  if(show){
+    tabPanel(
+      'Quality checks',
+      tags$h1("Jaccard Similarity Index Heatmap"),
+      shinyWidgets::dropdownButton(
+        shinyjqui::orderInput(ns('jaccard.annotations'), label = "Show annotations", items = colnames(metadata)),
+        sliderInput(ns('jaccard.n.abundant'), label = '# of (most abundant) genes',
+                    min = 50, value = 500, max = 5000, step = 50, ticks = FALSE),
+        checkboxInput(ns("jaccard.show.values"), label = "Show JSI values", value = FALSE),
+        textInput(ns('plotJSIFileName'), 'File name for JSI plot download', value ='JSIPlot.png'),
+        downloadButton(ns('downloadJSIPlot'), 'Download JSI Plot'),
+        
+        status = "info",
+        icon = icon("gear", verify_fa = FALSE), 
+        tooltip = shinyWidgets::tooltipOptions(title = "Click to see inputs!")
+      ),
+      plotOutput(ns('jaccard')),
       
-      status = "info",
-      icon = icon("gear", verify_fa = FALSE), 
-      tooltip = shinyWidgets::tooltipOptions(title = "Click to see inputs!")
-    ),
-    plotOutput(ns('jaccard')),
-    
-    tags$h1("Principal Component Analysis"),
-    shinyWidgets::dropdownButton(
-      radioButtons(ns('pca.annotation'), label = "Group by",
-                   choices = colnames(metadata), selected = colnames(metadata)[ncol(metadata)]),
-      sliderInput(ns('pca.n.abundant'), label = '# of (most abundant) genes',
-                  min = 50, value = 500, max = 5000, step = 50, ticks = FALSE),
-      checkboxInput(ns("pca.show.labels"), label = "Show sample labels", value = FALSE),
-      checkboxInput(ns('pca.show.ellipses'),label = "Show ellipses around groups",value=TRUE),
-      textInput(ns('plotPCAFileName'), 'File name for PCA plot download', value ='PCAPlot.png'),
-      downloadButton(ns('downloadPCAPlot'), 'Download PCA Plot'),
+      tags$h1("Principal Component Analysis"),
+      shinyWidgets::dropdownButton(
+        radioButtons(ns('pca.annotation'), label = "Group by",
+                     choices = colnames(metadata), selected = colnames(metadata)[ncol(metadata)]),
+        sliderInput(ns('pca.n.abundant'), label = '# of (most abundant) genes',
+                    min = 50, value = 500, max = 5000, step = 50, ticks = FALSE),
+        checkboxInput(ns("pca.show.labels"), label = "Show sample labels", value = FALSE),
+        checkboxInput(ns('pca.show.ellipses'),label = "Show ellipses around groups",value=TRUE),
+        textInput(ns('plotPCAFileName'), 'File name for PCA plot download', value ='PCAPlot.png'),
+        downloadButton(ns('downloadPCAPlot'), 'Download PCA Plot'),
+        
+        status = "info",
+        icon = icon("gear", verify_fa = FALSE), 
+        tooltip = shinyWidgets::tooltipOptions(title = "Click to see inputs!")
+      ),
+      plotOutput(ns('pca')),
       
-      status = "info",
-      icon = icon("gear", verify_fa = FALSE), 
-      tooltip = shinyWidgets::tooltipOptions(title = "Click to see inputs!")
-    ),
-    plotOutput(ns('pca')),
-    
-    tags$h1("MA plots"),
-    shinyWidgets::dropdownButton(
-      checkboxInput(ns("ma.show.guidelines"), label = "Show guidelines", value = TRUE),
-      selectInput(ns('ma.sample1'), 'Sample 1', choices = metadata[, 1], selected = metadata[1, 1]),
-      selectInput(ns('ma.sample2'), 'Sample 2', choices = metadata[, 1], selected = metadata[2, 1]),
-      textInput(ns('plotMAFileName'), 'File name for MA plot download', value = 'MAPlot.png'),
-      downloadButton(ns('downloadMAPlot'), 'Download MA Plot'),
-      
-      status = "info",
-      icon = icon("gear", verify_fa = FALSE), 
-      tooltip = shinyWidgets::tooltipOptions(title = "Click to see inputs!")
-    ),
-    plotOutput(ns('ma'))
-  )
+      tags$h1("MA plots"),
+      shinyWidgets::dropdownButton(
+        checkboxInput(ns("ma.show.guidelines"), label = "Show guidelines", value = TRUE),
+        selectInput(ns('ma.sample1'), 'Sample 1', choices = metadata[, 1], selected = metadata[1, 1]),
+        selectInput(ns('ma.sample2'), 'Sample 2', choices = metadata[, 1], selected = metadata[2, 1]),
+        textInput(ns('plotMAFileName'), 'File name for MA plot download', value = 'MAPlot.png'),
+        downloadButton(ns('downloadMAPlot'), 'Download MA Plot'),
+        
+        status = "info",
+        icon = icon("gear", verify_fa = FALSE), 
+        tooltip = shinyWidgets::tooltipOptions(title = "Click to see inputs!")
+      ),
+      plotOutput(ns('ma'))
+    )
+  }else{
+    NULL
+  }
 }
 
 #' @rdname QCpanel
@@ -80,8 +84,10 @@ QCpanelServer <- function(id, expression.matrix, metadata, anno){
         l <- length(unique(x))
         (l > 1) & (l < length(x))
       })
+      if (sum(include.exclude == TRUE) != 0){
       items <- colnames(metadata())[include.exclude]
       items <- items[c(length(items), seq_len(length(items) - 1))]
+      } else {items = colnames(metadata())[2:ncol(metadata())]}
       shinyjqui::updateOrderInput(session, "jaccard.annotations", items = items)
     })
     jaccard.plot <- reactive({
@@ -151,26 +157,33 @@ QCpanelServer <- function(id, expression.matrix, metadata, anno){
     output[['downloadJSIPlot']] <- downloadHandler(
       filename = function() { input[['plotJSIFileName']] },
       content = function(file) {
-        grDevices::png(file)
-        print(jaccard.plot())
-        grDevices::dev.off()
-        
+        if (base::strsplit(input[['plotJSIFileName']], split="\\.")[[1]][-1] == 'pdf'){
+          grDevices::pdf(file)
+          print(jaccard.plot())
+          grDevices::dev.off()
+        } else if (base::strsplit(input[['plotJSIFileName']], split="\\.")[[1]][-1] == 'svg'){
+          grDevices::svg(file)
+          print(jaccard.plot())
+          grDevices::dev.off()
+        } else {
+          grDevices::png(file)
+          print(jaccard.plot())
+          grDevices::dev.off()
+        }
       }
     )
     
     output[['downloadPCAPlot']] <- downloadHandler(
       filename = function() { input[['plotPCAFileName']] },
       content = function(file) {
-        device <- function(..., width, height) grDevices::png(..., width = width, height = height, res = 300, units = "in")
-        ggsave(file, plot = pca.plot(), device = device)
+        ggsave(file, plot = pca.plot(), dpi = 300)
       }
     )
     
     output[['downloadMAPlot']] <- downloadHandler(
       filename = function() { input[['plotMAFileName']] },
       content = function(file) {
-        device <- function(..., width, height) grDevices::png(..., width = width, height = height, res = 300, units = "in")
-        ggsave(file, plot = ma.plot(), device = device)
+        ggsave(file, plot = ma.plot(), dpi = 300)
       }
     )
   })

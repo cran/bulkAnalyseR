@@ -6,12 +6,15 @@
 \alias{DEplotPanelServer}
 \title{Generate the DE plot plot panel of the shiny app}
 \usage{
-DEplotPanelUI(id)
+DEplotPanelUI(id, show = TRUE)
 
 DEplotPanelServer(id, DEresults, anno)
 }
 \arguments{
 \item{id}{the input slot that will be used to access the value}
+
+\item{show}{whether to show the panel or not; default is TRUE; there for
+compatibility with specifying panels to show}
 
 \item{DEresults}{differential expression results output from DEpanelServer;
 a reactive list with slots 'DEtable' (all genes), 'DEtableSubset' (only DE genes),

@@ -1,13 +1,15 @@
 # *bulkAnalyseR*: An accessible, interactive pipeline for analysing and sharing bulk sequencing results
 
-[comment]: <[![rstudio mirror downloads](http://cranlogs.r-pkg.org/badges/bulkanalyser)](https://github.com/r-hub/cranlogs.app)>
-[comment]: <[![rstudio mirror downloads](http://cranlogs.r-pkg.org/badges/grand-total/bulkanalyser)](https://github.com/r-hub/cranlogs.app)>
+[![rstudio mirror downloads](http://cranlogs.r-pkg.org/badges/bulkAnalyseR)](https://github.com/r-hub/cranlogs.app)
+[![rstudio mirror downloads](http://cranlogs.r-pkg.org/badges/grand-total/bulkAnalyseR)](https://github.com/r-hub/cranlogs.app)
 
 <div style="text-align: justify"> 
 
 Bulk sequencing experiments (e.g. mRNAseq, sRNAseq etc) are essential for exploring a wide range of biological questions. To bring the data analysis closer to its interpretation and facilitate both interactive, exploratory tasks and the sharing of (easily accessible) information, we present *bulkAnalyseR*, an R package that offers a seamless, customisable solution for most bulk sequencing datasets. By integrating state-of-the-art approaches without relying on extensive computational support, and replacing static images with interactive panels, our aim is to further support and strengthen the reusability of data. *bulkAnalyseR* enables standard analyses of bulk data, using an expression matrix as starting point. It presents the outputs of various steps in an interactive web-based interface, making it easy to generate, explore and verify hypotheses. Moreover, the app can be easily shared and published, incentivising research reproducibility and allowing others to explore the same processed data.
 
-[comment]: <Preprint: AAA>
+Preprint: https://www.biorxiv.org/content/10.1101/2021.12.23.473982v1
+
+Live app example: http://bioinf.stemcells.cam.ac.uk:3838/bulkAnalyseR/Yang2019/
 
 If you are using components of this package in published research please cite the following papers along with the *bulkAnalyseR* manuscript:
 
@@ -17,7 +19,7 @@ e83–e83.
 * **Enrichment analysis:** Raudvere, U. et al. (2019). g:Profiler: a web server for functional enrichment analysis and conversions of gene lists (2019 update). Nucleic Acids Research, 47(W1), W191–W198.
 * **Gene regulatory network inference:** Huynh-Thu, V. A. et al. (2010). Inferring regulatory networks from expression data using tree-based methods. PloS one, 5(9), e12776.
 
-<img src="vignettes/figures/workflow.png" alt="drawing" width="500"/>
+<img src="https://github.com/Core-Bioinformatics/bulkAnalyseR/blob/main/vignettes/figures/workflow.png?raw=true" alt="drawing" width="500"/>
 
 *Workflow diagram of the **bulkAnalyseR** pipeline. The input comprises a processed (i.e. normalised, noise-corrected) expression matrix. Using **bulkAnalyseR**, all standard steps related to differential expression analyses are handled seamlessley. The pairwaise comparison of differential expression outputs is also possible (using cross plots and upset plots). Finally, localised Gene Regulatory Networks can be created.*
 
@@ -71,7 +73,7 @@ By default, the app will have 9 panels: Sample select, Quality checks, Different
 
 By default, the app will look like this:
 
-<img src="vignettes/figures/ScreenShot.png" alt="drawing" width="800"/>
+<img src="https://github.com/Core-Bioinformatics/bulkAnalyseR/blob/main/vignettes/figures/ScreenShot.png?raw=true" alt="drawing" width="800"/>
 
 *Screenshot from Yang case study processed with the bulkAnalyseR app*
 
@@ -152,6 +154,7 @@ To install the latest stable development version from GitHub, first install the 
 * visNetwork
 * gprofiler2
 * circlize
+* shinyLP
 
 ### Required Bioconductor packages (use *BiocManager::install()*) ###
 * preprocessCore

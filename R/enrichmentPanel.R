@@ -13,31 +13,35 @@ NULL
 
 #' @rdname enrichmentPanel
 #' @export
-enrichmentPanelUI <- function(id){
+enrichmentPanelUI <- function(id, show = TRUE){
   ns <- NS(id)
   
-  tabPanel(
-    'Enrichment',
-    shinyjs::useShinyjs(),
-    sidebarLayout(
-      # Sidebar panel for inputs ----
-      sidebarPanel(
-        checkboxGroupInput(ns('gprofilerSources'), 'Select data sources', 
-                           choices = c('GO:BP', 'GO:MF', 'GO:CC', 'KEGG', 'REAC', 
-                                       'TF', 'MIRNA', 'CORUM', 'HP', 'HPA', 'WP'), 
-                           selected = c('GO:BP', 'GO:MF', 'GO:CC', 'KEGG', 'REAC', 'TF', 'MIRNA')),
-        actionButton(ns('goEnrichment'), label = 'Start enrichment analysis'),
-        textInput(ns('fileName'), 'File name for data download', value ='EnrichmentSet.csv'),
-        downloadButton(ns('downloadTable'), 'Download Data'),
-        textInput(ns('plotFileName'), 'File name for plot download', value ='EnrichmentPlot.png'),
-        downloadButton(ns('downloadPlot'), 'Download Plot'),
-      ),
-      mainPanel(
-        plotOutput(ns('plot'), click = ns('plot_click')),
-        tableOutput(ns('data'))
+  if(show){
+    tabPanel(
+      'Enrichment',
+      shinyjs::useShinyjs(),
+      sidebarLayout(
+        # Sidebar panel for inputs ----
+        sidebarPanel(
+          checkboxGroupInput(ns('gprofilerSources'), 'Select data sources', 
+                             choices = c('GO:BP', 'GO:MF', 'GO:CC', 'KEGG', 'REAC', 
+                                         'TF', 'MIRNA', 'CORUM', 'HP', 'HPA', 'WP'), 
+                             selected = c('GO:BP', 'GO:MF', 'GO:CC', 'KEGG', 'REAC', 'TF', 'MIRNA')),
+          actionButton(ns('goEnrichment'), label = 'Start enrichment analysis'),
+          textInput(ns('fileName'), 'File name for data download', value ='EnrichmentSet.csv'),
+          downloadButton(ns('downloadTable'), 'Download Data'),
+          textInput(ns('plotFileName'), 'File name for plot download', value ='EnrichmentPlot.png'),
+          downloadButton(ns('downloadPlot'), 'Download Plot'),
+        ),
+        mainPanel(
+          plotOutput(ns('plot'), click = ns('plot_click')),
+          tableOutput(ns('data'))
+        )
       )
     )
-  )
+  }else{
+    NULL
+  }
 }
 
 #' @rdname enrichmentPanel
@@ -74,25 +78,39 @@ enrichmentPanelServer <- function(id, DEresults, organism, seed = 13){
       bindCache(DEresults()$DE()$DEtableSubset$gene_id, input[['gprofilerSources']]) %>%
       bindEvent(input[["goEnrichment"]])
     
+    returnableResult <- reactive({
+      term_id <- term_name <- intersection <- intersection_names <- source <- NULL
+      gostres <- getenrichmentData() %>% 
+        dplyr::select(c(term_id, term_name, intersection, intersection_names, source)) %>% 
+        dplyr::filter(source %in% c('TF', 'MIRNA')) %>% 
+        dplyr::mutate(term_name = dplyr::case_when(source=='TF' ~ stringr::str_extract(term_name, "Factor[:punct:] .*[:punct:] motif") %>% substr(9,nchar(.)-7))) %>%
+        dplyr::mutate('term_id' = term_name) %>%
+        tidyr::separate_rows(c('intersection', 'intersection_names'), sep=',', convert = TRUE) %>%
+        dplyr::select(c('intersection', 'intersection_names', 'term_id', 'term_name', 'source'))
+      colnames(gostres) <- c('Reference_ID', 'Reference_Name', 'Comparison_ID', 'Comparison_Name', 'Category')
+      return(gostres)
+    })
+    
+    source <- p_value <- `-log10(pVal)` <- NULL
+    
     #Jitter plot and save coordinates
     getenrichmentPlot <- reactive({
       set.seed(seed)
-      jitter.plot = ggplot(getenrichmentData()) + 
+      jitter.plot <- ggplot(getenrichmentData()) + 
         geom_jitter(aes(x = source, y = p_value, colour = source))
       jitter.build <- ggplot_build(jitter.plot)
-      x = jitter.build$data[[1]]$x
-      df = getenrichmentData()
-      df$jitter = x
-      df$`-log10(pVal)`= -log10(df$p_value)
+      x <- jitter.build$data[[1]]$x
+      df <- getenrichmentData()
+      df$jitter <- x
+      df$`-log10(pVal)` <- -log10(df$p_value)
       return(df)
     })
     
     #Plot enrichment data
-    source <- NULL; p_value <- NULL
     plotenrichmentPlot <- reactive({
       plotdata <- getenrichmentPlot()
       myplot <- ggplot(plotdata) + 
-        geom_point(aes(x = jitter, y = .data$`-log10(pVal)`, colour = source)) + 
+        geom_point(aes(x = jitter, y = `-log10(pVal)`, colour = source)) + 
         theme_bw()+ 
         scale_x_continuous(breaks = seq(1, length(unique(plotdata$source)), 1), 
                            labels = unique(plotdata$source)) + 
@@ -105,7 +123,12 @@ enrichmentPanelServer <- function(id, DEresults, organism, seed = 13){
     #Define clicking on enrichment data table
     output[['data']] <- renderTable({
       req(input[['plot_click']])
-      nearPoints(df = getenrichmentPlot()[,c('term_name','source','term_id','-log10(pVal)','intersection_size','jitter')], coordinfo = input[['plot_click']], maxpoints = 5)
+      nearPoints(
+        df = getenrichmentPlot()[, c('term_name', 'source', 'term_id', '-log10(pVal)',
+                                     'intersection_size', 'jitter')], 
+        coordinfo = input[['plot_click']], 
+        maxpoints = 5
+      )
     })
     
     #Download enrichment
@@ -121,10 +144,12 @@ enrichmentPanelServer <- function(id, DEresults, organism, seed = 13){
     output[['downloadPlot']] <- downloadHandler(
       filename = function() { input[['plotFileName']] },
       content = function(file) {
-        device <- function(..., width, height) grDevices::png(..., width = width, height = height, res = 300, units = "in")
-        ggsave(file, plot = plotenrichmentPlot(), device = device)
+        ggsave(file, plot = plotenrichmentPlot(), dpi = 300)
       }
     )
+    
+    return(returnableResult)
+    
   })
 }
 
