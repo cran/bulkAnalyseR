@@ -65,13 +65,15 @@ enrichmentPanelServer <- function(id, DEresults, organism, seed = 13){
                                   custom_bg = inputdata$DEtable$gene_id,
                                   sources = input[['gprofilerSources']],
                                   evcodes = TRUE)
-      gostres$result <- gostres$result %>%
-        dplyr::mutate(parents = sapply(.data$parents, toString),
-                      intersection_names = sapply(.data$intersection, function(x){
-                        ensids <- strsplit(x, split = ",")[[1]]
-                        names <- inputdata$DEtable$gene_name[match(ensids, inputdata$DEtable$gene_id)]
-                        paste(names, collapse = ",")
-                      }))
+      if(!is.null(gostres$result)){
+        gostres$result <- gostres$result %>%
+          dplyr::mutate(parents = sapply(.data$parents, toString),
+                        intersection_names = sapply(.data$intersection, function(x){
+                          ensids <- strsplit(x, split = ",")[[1]]
+                          names <- inputdata$DEtable$gene_name[match(ensids, inputdata$DEtable$gene_id)]
+                          paste(names, collapse = ",")
+                        }))
+      }
       shinyjs::enable("goEnrichment")
       return(gostres$result)
     }) %>%
@@ -80,14 +82,17 @@ enrichmentPanelServer <- function(id, DEresults, organism, seed = 13){
     
     returnableResult <- reactive({
       term_id <- term_name <- intersection <- intersection_names <- source <- NULL
-      gostres <- getenrichmentData() %>% 
-        dplyr::select(c(term_id, term_name, intersection, intersection_names, source)) %>% 
-        dplyr::filter(source %in% c('TF', 'MIRNA')) %>% 
-        dplyr::mutate(term_name = dplyr::case_when(source=='TF' ~ stringr::str_extract(term_name, "Factor[:punct:] .*[:punct:] motif") %>% substr(9,nchar(.)-7))) %>%
-        dplyr::mutate('term_id' = term_name) %>%
-        tidyr::separate_rows(c('intersection', 'intersection_names'), sep=',', convert = TRUE) %>%
-        dplyr::select(c('intersection', 'intersection_names', 'term_id', 'term_name', 'source'))
-      colnames(gostres) <- c('Reference_ID', 'Reference_Name', 'Comparison_ID', 'Comparison_Name', 'Category')
+      gostres <- getenrichmentData() 
+      if(!is.null(gostres)){
+        gostres <- gostres %>% 
+          dplyr::select(c(term_id, term_name, intersection, intersection_names, source)) %>% 
+          dplyr::filter(source %in% c('TF', 'MIRNA')) %>% 
+          dplyr::mutate(term_name = dplyr::case_when(source=='TF' ~ stringr::str_extract(term_name, "Factor[:punct:] .*[:punct:] motif") %>% substr(9,nchar(.)-7))) %>%
+          dplyr::mutate('term_id' = term_name) %>%
+          tidyr::separate_rows(c('intersection', 'intersection_names'), sep=',', convert = TRUE) %>%
+          dplyr::select(c('intersection', 'intersection_names', 'term_id', 'term_name', 'source'))
+        colnames(gostres) <- c('Reference_ID', 'Reference_Name', 'Comparison_ID', 'Comparison_Name', 'Category')
+      }
       return(gostres)
     })
     
@@ -101,14 +106,17 @@ enrichmentPanelServer <- function(id, DEresults, organism, seed = 13){
       jitter.build <- ggplot_build(jitter.plot)
       x <- jitter.build$data[[1]]$x
       df <- getenrichmentData()
-      df$jitter <- x
-      df$`-log10(pVal)` <- -log10(df$p_value)
+      if(!is.null(df)){
+        df$jitter <- x
+        df$`-log10(pVal)` <- -log10(df$p_value)
+      }
       return(df)
     })
     
     #Plot enrichment data
     plotenrichmentPlot <- reactive({
       plotdata <- getenrichmentPlot()
+      if(is.null(plotdata)) stop("No enriched terms found")
       myplot <- ggplot(plotdata) + 
         geom_point(aes(x = jitter, y = `-log10(pVal)`, colour = source)) + 
         theme_bw()+ 

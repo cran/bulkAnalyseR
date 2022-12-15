@@ -121,6 +121,18 @@ GRNpanelServer <- function(id, expression.matrix, metadata, anno){
         session, "targets", server = TRUE,
         choices = anno$NAME[anno$ENSEMBL %in% rownames(expression.matrix.sub())]
       )
+      updateSelectInput(session, 'samples1', 
+                        choices = unique(metadata()[[input[["condition"]]]]), 
+                        selected = unique(metadata()[[input[["condition"]]]]))
+      updateSelectInput(session, 'samples2', 
+                        choices = unique(metadata()[[input[["condition"]]]]), 
+                        selected = unique(metadata()[[input[["condition"]]]]))
+      updateSelectInput(session, 'samples3', 
+                        choices = unique(metadata()[[input[["condition"]]]]), 
+                        selected = unique(metadata()[[input[["condition"]]]]))
+      updateSelectInput(session, 'samples4', 
+                        choices = unique(metadata()[[input[["condition"]]]]), 
+                        selected = unique(metadata()[[input[["condition"]]]]))
     })
     
     observe({
@@ -128,7 +140,11 @@ GRNpanelServer <- function(id, expression.matrix, metadata, anno){
         (input[["n_networks"]] < 1 | length(input[["samples1"]]) > 0) &
         (input[["n_networks"]] < 2 | length(input[["samples2"]]) > 0) &
         (input[["n_networks"]] < 3 | length(input[["samples3"]]) > 0) &
-        (input[["n_networks"]] < 4 | length(input[["samples4"]]) > 0)
+        (input[["n_networks"]] < 4 | length(input[["samples4"]]) > 0) &
+        (input[["n_networks"]] < 1 | (sum((metadata()[,input[["condition"]]]%in%input[["samples1"]])) > 1)) &
+        (input[["n_networks"]] < 2 | (sum((metadata()[,input[["condition"]]]%in%input[["samples2"]])) > 1)) &
+        (input[["n_networks"]] < 3 | (sum((metadata()[,input[["condition"]]]%in%input[["samples3"]])) > 1)) &
+        (input[["n_networks"]] < 4 | (sum((metadata()[,input[["condition"]]]%in%input[["samples4"]])) > 1))
       if(enable_condition){
         shinyjs::enable("goGRN")
       }else{
@@ -137,8 +153,7 @@ GRNpanelServer <- function(id, expression.matrix, metadata, anno){
     }) %>%
       bindEvent(input[["targets"]], input[["n_networks"]], input[["samples1"]],
                 input[["samples2"]], input[["samples3"]], input[["samples4"]])
-    
-    
+ 
     n_networks <- reactive(input[["n_networks"]]) %>% bindEvent(input[["goGRN"]])
     observe(updateSelectInput(session, "plotId", choices = seq_len(n_networks())))
     
@@ -160,6 +175,8 @@ GRNpanelServer <- function(id, expression.matrix, metadata, anno){
       }
       weightMat
     }) %>%
+      bindCache(utils::head(expression.matrix()), metadata(), input[["condition"]], 
+                input[['samples1']],input[['targets']]) %>%
       bindEvent(input[["goGRN"]])
     GRNresults2 <- reactive({
       shinyjs::disable("goGRN")
@@ -179,6 +196,8 @@ GRNpanelServer <- function(id, expression.matrix, metadata, anno){
       }
       weightMat
     }) %>%
+      bindCache(utils::head(expression.matrix()), metadata(), input[["condition"]], 
+                input[['samples2']],input[['targets']]) %>% 
       bindEvent(input[["goGRN"]])
     GRNresults3 <- reactive({
       shinyjs::disable("goGRN")
@@ -198,6 +217,8 @@ GRNpanelServer <- function(id, expression.matrix, metadata, anno){
       }
       weightMat
     }) %>%
+      bindCache(utils::head(expression.matrix()), metadata(), input[["condition"]], 
+                input[['samples3']],input[['targets']]) %>%
       bindEvent(input[["goGRN"]])
     GRNresults4 <- reactive({
       shinyjs::disable("goGRN")
@@ -217,6 +238,8 @@ GRNpanelServer <- function(id, expression.matrix, metadata, anno){
       }
       weightMat
     }) %>%
+      bindCache(utils::head(expression.matrix()), metadata(), input[["condition"]], 
+                input[['samples4']],input[['targets']]) %>%
       bindEvent(input[["goGRN"]])
     
     weightMatList <- reactive({

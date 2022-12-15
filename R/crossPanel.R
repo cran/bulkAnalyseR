@@ -39,14 +39,16 @@ crossPanelUI <- function(id, metadata, show = TRUE){
           selectInput(ns('pipeline2'), 'DE pipeline for comparison #2:', c("edgeR", "DESeq2")),
           
           sliderInput(ns('lfcThreshold'), label = 'logFC threshold',
-                      min = 0, value = 1, max = 5, step = 0.5),
+                      min = 0, value = 1, max = 5, step = 0.05),
           sliderInput(ns('pvalThreshold'), label = 'Adjusted p-value threshold',
                       min = 0, value = 0.05, max = 0.2, step = 0.005),
           
           actionButton(ns('goDE'), label = 'Start DE'),
+          textInput(ns('dataFileName'),'File name for download', value ='crossPlot.csv', placeholder = 'crossPlot.csv'),
+          downloadButton(ns('download_data'), 'Download Table')
         ),
         
-        #Main panel for displaying table of DE genes
+        #Main panel for displaying plots table of DE genes
         mainPanel(
           shinyWidgets::dropdownButton(
             shinyWidgets::switchInput(
@@ -79,6 +81,7 @@ crossPanelUI <- function(id, metadata, show = TRUE){
           ),
           
           plotOutput(ns('plot'), click = ns('plot_click')),
+          plotOutput(ns('venn')),
           tableOutput(ns('data')) 
         )
       )
@@ -192,14 +195,22 @@ crossPanelServer <- function(id, expression.matrix, metadata, anno){
                 input[["pipeline2"]], input[["lfcThreshold"]], input[["pvalThreshold"]]) %>%
       bindEvent(input[["goDE"]])
     
-    cp <- reactive({
+    cp_table <- reactive({
       results <- DEresults()
-      cross_plot(
+      cross_plot_prep(
         DEtable1 = results$DEtable1,
         DEtable2 = results$DEtable2,
         DEtable1Subset = results$DEtable1Subset,
         DEtable2Subset = results$DEtable2Subset,
-        lfc.threshold = results$lfcThreshold,
+        lfc.threshold = results$lfcThreshold
+      )
+    })
+    
+    cp <- reactive({
+      cp_table <- cp_table()
+      cross_plot(
+        df = cp_table,
+        lfc.threshold = input[["lfcThreshold"]],
         raster = TRUE,
         labels.per.region = ifelse(input[["autoLabel"]], 5, 0),
         add.labels.custom = length(input[["geneName"]]) > 0,
@@ -207,7 +218,19 @@ crossPanelServer <- function(id, expression.matrix, metadata, anno){
       )
     })
     
+    venn <- reactive({
+      results <- DEresults()
+      ggVennDiagram::ggVennDiagram(
+        list(
+          "DE comparison 1" = results$DEtable1Subset$gene_id, 
+          "DE comparison 2" = results$DEtable2Subset$gene_id
+        ),
+        color = "white"
+      )
+    })
+    
     output[['plot']] <- renderPlot(cp())
+    output[['venn']] <- renderPlot(venn())
     
     output[['data']] <- renderTable({
       req(input[['plot_click']])
@@ -233,6 +256,16 @@ crossPanelServer <- function(id, expression.matrix, metadata, anno){
       filename = function() input[['plotFileName']],
       content = function(file) {
         ggsave(file, plot = cp(), dpi = 300)
+      }
+    )
+    
+    #DE data download
+    output[['download_data']] <- downloadHandler(
+      filename = function() {
+        paste(input[['dataFileName']])
+      },
+      content = function(file) {
+        utils::write.csv(x = cp_table(), file = file, row.names = FALSE)
       }
     )
   })
